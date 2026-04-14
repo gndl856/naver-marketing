@@ -7,9 +7,9 @@ import requests
 import pandas as pd
 
 # --- [1. 인증 정보] ---
-API_KEY = st.secrets["API_KEY"]
-SECRET_KEY = st.secrets["SECRET_KEY"]
-CUSTOMER_ID = st.secrets["CUSTOMER_ID"]
+API_KEY = '0100000000d4546f2c4afe3949fad6171a8a4fbbbb54c53ab17bdaa6047794f6cc44de07c9'
+SECRET_KEY = 'AQAAAADUVG8sSv45SfrWFxqKT7u7NW6NWIg+xKyApAZCF1FzdQ=='
+CUSTOMER_ID = '2066558'
 BASE_URL = 'https://api.naver.com'
 
 # --- [2. 헤더 생성 함수] ---
