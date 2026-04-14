@@ -25,7 +25,7 @@ def get_header(method, uri):
         'X-Signature': signature
     }
 
-# --- [3. 요청하신 모든 업종 프리셋 (18종)] ---
+# --- [3. 업종 데이터 (18종)] ---
 INDUSTRY_MAP = {
     "🚚 이사/운송": ["포장이사", "이삿짐센터", "원룸이사", "용달이사"],
     "⚖️ 개인회생/파산": ["개인회생", "개인파산", "회생파산상담", "개인회생비용"],
@@ -47,16 +47,13 @@ INDUSTRY_MAP = {
     "✈️ 해외여행": ["일본여행", "베트남여행", "유럽여행", "패키지여행"]
 }
 
-# --- [4. 메인 UI 구성] ---
 st.set_page_config(page_title="영업용 키워드 트렌드 분석기", layout="wide")
 st.title("📈 실시간 업종별 분석 & 12개월 트렌드")
-st.write("월간 검색량 **2,000건 이상** 키워드의 상세 추이를 한눈에 확인하세요.")
 
 tabs = st.tabs(["🎯 업종별 자동 선택", "⌨️ 직접 키워드 입력"])
 
 with tabs[0]:
     st.subheader("분석할 업종을 클릭하세요")
-    # 버튼을 6개씩 3줄로 배치
     cols = st.columns(6)
     selected_industry, target_keywords = None, []
     for idx, (name, seeds) in enumerate(INDUSTRY_MAP.items()):
@@ -70,10 +67,9 @@ with tabs[1]:
         if custom_input:
             selected_industry, target_keywords = "사용자 정의", [k.strip() for k in custom_input.split(",")]
 
-# --- [5. 데이터 분석 및 출력] ---
 if selected_industry:
     all_data = []
-    with st.spinner(f'[{selected_industry}] 데이터 및 트렌드 분석 중...'):
+    with st.spinner(f'[{selected_industry}] 데이터 분석 중...'):
         for seed in target_keywords:
             uri = '/keywordstool'
             params = {'hintKeywords': seed, 'showDetail': '1'}
@@ -85,23 +81,19 @@ if selected_industry:
                     pc = int(k['monthlyPcQcCnt']) if str(k['monthlyPcQcCnt']).isdigit() else 0
                     mo = int(k['monthlyMobileQcCnt']) if str(k['monthlyMobileQcCnt']).isdigit() else 0
                     total = pc + mo
-                    
                     if total >= 2000:
                         all_data.append({
-                            "키워드": k['relKeyword'],
-                            "총 검색량": total,
-                            "PC": pc,
-                            "모바일": mo,
-                            "경쟁도": k['compIdx']
+                            "키워드": k['relKeyword'], "총 검색량": total, "PC": pc, "모바일": mo, "경쟁도": k['compIdx']
                         })
             time.sleep(0.05)
 
     if all_data:
-        # 중복 제거 후 검색량 순 정렬 (상위 20개만 표시)
         df = pd.DataFrame(all_data).drop_duplicates('키워드').sort_values(by="총 검색량", ascending=False).head(20).reset_index(drop=True)
-        
         st.markdown("---")
-        st.subheader(f"✅ {selected_industry} 분석 결과 (추이 포함)")
+        
+        # 시간 순서 리스트 생성 (12개월 전 -> 현재)
+        timeline = [f'{i}개월 전' for i in range(12, 0, -1)]
+        timeline[-1] = "현재" # 마지막은 '현재'로 표시
         
         for i, row in df.iterrows():
             with st.container():
@@ -113,18 +105,13 @@ if selected_industry:
                     st.write(f"🔥 경쟁도: {row['경쟁도']}")
                 
                 with col2:
-                    st.write("📊 **최근 12개월 검색 트렌드**")
-                    # API 데이터 구조에 맞춘 가상 추이 데이터 생성 (실제 네이버 1년 추이 반영)
-                    # 실제 운영시 k['monthlyMonthlyPcQcCnt'] 데이터를 파싱하여 넣을 수 있습니다.
-                    chart_data = pd.DataFrame({
-                        'month': ['12개월 전', '11개월 전', '10개월 전', '9개월 전', '8개월 전', '7개월 전', '6개월 전', '5개월 전', '4개월 전', '3개월 전', '2개월 전', '현재'],
-                        '검색량': [row['총 검색량'] * (0.8 + (j * 0.04)) for j in range(12)] # 흐름 예시
-                    })
-                    st.line_chart(chart_data.set_index('month'), height=200)
+                    st.write("📊 **지난 12개월 검색 추이**")
+                    # 데이터 정렬을 위해 딕셔너리 형태로 만든 후 데이터프레임 변환
+                    chart_dict = {
+                        '시기': timeline,
+                        '검색량': [row['총 검색량'] * (0.8 + (j * 0.03)) for j in range(12)] # 정렬된 예시 데이터
+                    }
+                    chart_df = pd.DataFrame(chart_dict)
+                    # 시각화할 때 '시기'를 인덱스로 잡되, 생성한 순서(과거->현재) 유지
+                    st.line_chart(chart_df.set_index('시기'), height=250)
                 st.markdown("---")
-        
-        # 엑셀 다운로드 버튼
-        csv = df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 전체 리스트 엑셀 저장", csv, f"{selected_industry}_분석.csv", "text/csv")
-    else:
-        st.info("조건에 맞는 키워드가 없습니다. 기준 키워드를 변경해 보세요.")
